@@ -187,7 +187,7 @@ class _GamePageState extends State<GamePage> {
       backgroundColor: const Color(0xFFE3F2FD),
       appBar: AppBar(
         title: const Text(
-          'Catch Green Game',
+          'GreenStep Playground',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: const Color(0xFF2E7D32),
@@ -352,7 +352,7 @@ class _GamePageState extends State<GamePage> {
   }
 
   Widget _buildStartScreen() {
-    return Center(
+    return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -385,7 +385,16 @@ class _GamePageState extends State<GamePage> {
                 color: Color(0xFF2E7D32),
               ),
             ),
-            const SizedBox(height: 40),
+            const SizedBox(height: 20),
+            const Text(
+              '[ Future Work ]',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.red,
+              ),
+            ),
+            const SizedBox(height: 30),
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(

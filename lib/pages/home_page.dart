@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../auth/auth_service.dart';
+import '../services/database_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -8,15 +10,82 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  int _currentIndex = 0;
-  // TODO: This will come from Supabase later
-  int userScore = 450;
-  String userName = "Swadheen Islam Robi";
-  int tasksCompleted = 23;
-  int currentStreak = 7;
+  final AuthService _authService = AuthService();
+  final DatabaseService _dbService = DatabaseService();
+
+  String userName = "Loading...";
+  int userScore = 0;
+  int tasksCompleted = 0;
+  int currentStreak = 0;
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    try {
+      print('🏠 Home Page: Loading user data...');
+
+      final profile = await _dbService.getUserProfile();
+
+      if (profile != null) {
+        setState(() {
+          userName = profile['username'] ?? 'User';
+          userScore = profile['total_score'] ?? 0;
+          tasksCompleted = profile['tasks_completed'] ?? 0;
+          currentStreak = profile['current_streak'] ?? 0;
+          isLoading = false;
+        });
+
+        print('✅ User data loaded: $userName, Score: $userScore');
+      } else {
+        setState(() {
+          isLoading = false;
+        });
+        print('❌ Could not load user profile');
+      }
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+      print('❌ Error loading user data: $e');
+    }
+  }
+
+
+  Future<void> _handleLogout() async {
+    try {
+      await _authService.signOut();
+
+      if (mounted) {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/login',
+              (route) => false, // Remove all routes from stack
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Logout failed: $e')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (isLoading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
@@ -29,9 +98,12 @@ class _HomePageState extends State<HomePage> {
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications_outlined),
+            icon: const Icon(Icons.refresh),
             onPressed: () {
-              // TODO: Show notifications
+              setState(() {
+                isLoading = true;
+              });
+              _loadUserData();
             },
           ),
         ],
@@ -89,9 +161,9 @@ class _HomePageState extends State<HomePage> {
                     ],
                   ),
                   const SizedBox(height: 5),
-                  const Text(
-                    'Level: Eco Warrior',
-                    style: TextStyle(
+                  Text(
+                    'Level: ${_getLevel(userScore)}',
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 18,
                       fontWeight: FontWeight.w500,
@@ -149,7 +221,37 @@ class _HomePageState extends State<HomePage> {
                           Icons.add_task,
                           const Color(0xFF2E7D32),
                               () {
-                            Navigator.pushNamed(context, '/tasks');
+                            Navigator.pushNamed(context, '/tasks').then((_) {
+                              _loadUserData();
+                            });
+                          },
+                        ),
+                      ),
+                      //const SizedBox(width: 12),
+                      ///My Profile chilo age
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildQuickActionCard(
+                          'My Profile',
+                          Icons.person,
+                          Colors.teal,
+                              () {
+                            Navigator.pushNamed(context, '/profile');
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildQuickActionCard(
+                          'Leaderboard',
+                          Icons.leaderboard,
+                          Colors.amber,
+                              () {
+                            Navigator.pushNamed(context, '/leaderboard');
                           },
                         ),
                       ),
@@ -164,66 +266,8 @@ class _HomePageState extends State<HomePage> {
                           },
                         ),
                       ),
+
                     ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildQuickActionCard(
-                          'Leaderboard',
-                          Icons.leaderboard,
-                          Colors.amber,
-                              () {
-                            Navigator.pushNamed(context, '/leaderboard');
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildQuickActionCard(
-                          'My Profile',
-                          Icons.person,
-                          Colors.teal,
-                              () {
-                            Navigator.pushNamed(context, '/profile');
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            // Today's Featured Tasks
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Today\'s Featured Tasks',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildFeaturedTask(
-                    'Use Reusable Water Bottle',
-                    '10 points',
-                    Icons.water_drop,
-                  ),
-                  _buildFeaturedTask(
-                    'Turn Off Lights',
-                    '10 points',
-                    Icons.lightbulb_outline,
-                  ),
-                  _buildFeaturedTask(
-                    'Use Public Transport',
-                    '20 points',
-                    Icons.directions_bus,
                   ),
                 ],
               ),
@@ -233,6 +277,14 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
     );
+  }
+
+  String _getLevel(int score) {
+    if (score < 100) return 'Eco Beginner';
+    if (score < 300) return 'Green Friend';
+    if (score < 500) return 'Eco Warrior';
+    if (score < 1000) return 'Planet Hero';
+    return 'Eco Legend';
   }
 
   Widget _buildDrawer() {
@@ -292,7 +344,9 @@ class _HomePageState extends State<HomePage> {
             title: const Text('Tasks'),
             onTap: () {
               Navigator.pop(context);
-              Navigator.pushNamed(context, '/tasks');
+              Navigator.pushNamed(context, '/tasks').then((_) {
+                _loadUserData();
+              });
             },
           ),
           ListTile(
@@ -323,10 +377,7 @@ class _HomePageState extends State<HomePage> {
           ListTile(
             leading: const Icon(Icons.logout),
             title: const Text('Logout'),
-            onTap: () {
-              // TODO: Implement logout with Supabase
-              Navigator.pushReplacementNamed(context, '/login');
-            },
+            onTap: _handleLogout, // ✅ Uses fixed logout method
           ),
         ],
       ),
@@ -401,57 +452,6 @@ class _HomePageState extends State<HomePage> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildFeaturedTask(String title, String points, IconData icon) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFF2E7D32).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              icon,
-              color: const Color(0xFF2E7D32),
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          Text(
-            points,
-            style: const TextStyle(
-              color: Color(0xFF2E7D32),
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
       ),
     );
   }

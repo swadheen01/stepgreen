@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../auth/auth_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -12,6 +13,9 @@ class _LoginPageState extends State<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
+  bool _isLoading = false; // Track if login is in progress
+
+  final AuthService _authService = AuthService();
 
   @override
   void dispose() {
@@ -20,14 +24,56 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  void _handleLogin() {
-    if (_formKey.currentState!.validate()) {
-      // TODO: Integrate Supabase authentication here
-      // For now, just navigate to home
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Login successful!')),
+  Future<void> _handleLogin() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+
+      await _authService.signIn(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
       );
-      Navigator.pushReplacementNamed(context, '/home');
+
+
+      if (mounted) {
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Login successful!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 1),
+          ),
+        );
+
+        // This ensures we go to HomePage and can't go back to LoginPage
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/home',
+              (route) => false,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Login failed: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -106,6 +152,7 @@ class _LoginPageState extends State<LoginPage> {
                           TextFormField(
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
+                            enabled: !_isLoading, // Disable while loading
                             decoration: InputDecoration(
                               labelText: 'Email',
                               prefixIcon: const Icon(Icons.email_outlined),
@@ -128,6 +175,7 @@ class _LoginPageState extends State<LoginPage> {
                           TextFormField(
                             controller: _passwordController,
                             obscureText: !_isPasswordVisible,
+                            enabled: !_isLoading, // Disable while loading
                             decoration: InputDecoration(
                               labelText: 'Password',
                               prefixIcon: const Icon(Icons.lock_outline),
@@ -163,7 +211,7 @@ class _LoginPageState extends State<LoginPage> {
                             width: double.infinity,
                             height: 50,
                             child: ElevatedButton(
-                              onPressed: _handleLogin,
+                              onPressed: _isLoading ? null : _handleLogin,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF2E7D32),
                                 foregroundColor: Colors.white,
@@ -171,7 +219,16 @@ class _LoginPageState extends State<LoginPage> {
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                               ),
-                              child: const Text(
+                              child: _isLoading
+                                  ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                                  : const Text(
                                 'Login',
                                 style: TextStyle(
                                   fontSize: 18,
@@ -194,7 +251,9 @@ class _LoginPageState extends State<LoginPage> {
                         style: TextStyle(color: Colors.white),
                       ),
                       GestureDetector(
-                        onTap: () {
+                        onTap: _isLoading
+                            ? null
+                            : () {
                           Navigator.pushNamed(context, '/signup');
                         },
                         child: const Text(
@@ -202,7 +261,6 @@ class _LoginPageState extends State<LoginPage> {
                           style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
-                            decoration: TextDecoration.underline,
                           ),
                         ),
                       ),

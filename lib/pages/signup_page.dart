@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../auth/auth_service.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -15,6 +16,10 @@ class _SignupPageState extends State<SignupPage> {
   final _confirmPasswordController = TextEditingController();
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
+  bool _isLoading = false; // Track if signup is in progress
+
+  // Create instance of AuthService
+  final AuthService _authService = AuthService();
 
   @override
   void dispose() {
@@ -25,14 +30,49 @@ class _SignupPageState extends State<SignupPage> {
     super.dispose();
   }
 
-  void _handleSignup() {
-    if (_formKey.currentState!.validate()) {
-      // TODO: Integrate Supabase user registration here
-      // For now, show success and navigate to home
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Account created successfully!')),
+  Future<void> _handleSignup() async {
+    // Check if form is valid
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+
+      await _authService.signUp(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+        username: _nameController.text.trim(),
       );
-      Navigator.pushReplacementNamed(context, '/home');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Account created successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      // If signup fails, show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Signup failed: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      // Stop loading state
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -110,6 +150,7 @@ class _SignupPageState extends State<SignupPage> {
                           // Name Field
                           TextFormField(
                             controller: _nameController,
+                            enabled: !_isLoading,
                             decoration: InputDecoration(
                               labelText: 'Full Name',
                               prefixIcon: const Icon(Icons.person_outline),
@@ -129,6 +170,7 @@ class _SignupPageState extends State<SignupPage> {
                           TextFormField(
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
+                            enabled: !_isLoading,
                             decoration: InputDecoration(
                               labelText: 'Email',
                               prefixIcon: const Icon(Icons.email_outlined),
@@ -151,6 +193,7 @@ class _SignupPageState extends State<SignupPage> {
                           TextFormField(
                             controller: _passwordController,
                             obscureText: !_isPasswordVisible,
+                            enabled: !_isLoading,
                             decoration: InputDecoration(
                               labelText: 'Password',
                               prefixIcon: const Icon(Icons.lock_outline),
@@ -185,6 +228,7 @@ class _SignupPageState extends State<SignupPage> {
                           TextFormField(
                             controller: _confirmPasswordController,
                             obscureText: !_isConfirmPasswordVisible,
+                            enabled: !_isLoading,
                             decoration: InputDecoration(
                               labelText: 'Confirm Password',
                               prefixIcon: const Icon(Icons.lock_outline),
@@ -221,7 +265,7 @@ class _SignupPageState extends State<SignupPage> {
                             width: double.infinity,
                             height: 50,
                             child: ElevatedButton(
-                              onPressed: _handleSignup,
+                              onPressed: _isLoading ? null : _handleSignup,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF2E7D32),
                                 foregroundColor: Colors.white,
@@ -229,7 +273,16 @@ class _SignupPageState extends State<SignupPage> {
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                               ),
-                              child: const Text(
+                              child: _isLoading
+                                  ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                                  : const Text(
                                 'Sign Up',
                                 style: TextStyle(
                                   fontSize: 18,
@@ -252,7 +305,9 @@ class _SignupPageState extends State<SignupPage> {
                         style: TextStyle(color: Colors.white),
                       ),
                       GestureDetector(
-                        onTap: () {
+                        onTap: _isLoading
+                            ? null
+                            : () {
                           Navigator.pop(context);
                         },
                         child: const Text(
@@ -260,7 +315,6 @@ class _SignupPageState extends State<SignupPage> {
                           style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
-                            decoration: TextDecoration.underline,
                           ),
                         ),
                       ),

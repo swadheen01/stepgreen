@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import '../auth/auth_gate.dart';
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -11,10 +11,13 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    // Navigate to login after 3 seconds
+
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted) {
-        Navigator.pushReplacementNamed(context, '/login');
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const AuthGate()),
+        );
       }
     });
   }
